@@ -29,4 +29,8 @@ COPY --chown=browser:root . ./
 
 ENV APIFY_DISABLE_OUTDATED_WARNING=1
 
+ARG UNDETECT_KEY
+ENV UNDETECT_KEY=$UNDETECT_KEY
+ENV APIFY_CHROME_EXECUTABLE_PATH=/usr/bin/stealthium
+
 CMD npm run start:prod --silent
