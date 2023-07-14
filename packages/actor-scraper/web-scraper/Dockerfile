@@ -1,19 +1,19 @@
 ARG CONTAINER_KEY
 FROM cr.undetect.io/$CONTAINER_KEY/stealthium:latest AS builder
 
-COPY --chown=browser package*.json ./
+COPY --chown=browser:root package*.json ./
 
 RUN npm install --include=dev --audit=false
 
-COPY --chown=browser . ./
+COPY --chown=browser:root . ./
 
 RUN npm run build
 
 FROM cr.undetect.io/$CONTAINER_KEY/stealthium:latest
 
-COPY --from=builder --chown=browser /home/browser/dist ./dist
+COPY --from=builder --chown=browser:root /home/browser/dist ./dist
 
-COPY --chown=browser package*.json ./
+COPY --chown=browser:root package*.json ./
 
 RUN npm --quiet set progress=false \
     && npm install --omit=dev --omit=optional \
@@ -25,7 +25,7 @@ RUN npm --quiet set progress=false \
     && npm --version \
     && rm -r ~/.npm
 
-COPY --chown=browser . ./
+COPY --chown=browser:root . ./
 
 ENV APIFY_DISABLE_OUTDATED_WARNING=1
 
