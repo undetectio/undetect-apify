@@ -228,6 +228,7 @@ export class CrawlerSetup implements CrawlerSetupOptions {
                     ignoreHTTPSErrors: this.input.ignoreSslErrors,
                     defaultViewport: DEFAULT_VIEWPORT,
                     args,
+                    ...(this.input.debugLog ? { dumpio: true } : {}), // Dump browser ouput if debug log is enabled
                     headless: this.input.headless,
                 },
             },
