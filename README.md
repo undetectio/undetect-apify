@@ -1,3 +1,5 @@
+> **Warning**: in order to use this actor, you need to sign up as an [Undetect](https://undetect.io/) enterprise customer first. Then, check out the [documentation](https://docs.undetect.io/integration/cloud?id=apify) to learn how to set up the Apify integration.
+
 # Apify SDK monorepo
 
 [![npm version](https://badge.fury.io/js/apify.svg)](https://www.npmjs.com/package/apify)
