@@ -1,7 +1,7 @@
 {
     "title": "Web Scraper Input",
     "type": "object",
-    "description": "Web Scraper loads <b>Start URLs</b> in the Chrome browser and executes <b>Page function</b> on each page to extract data from it. To follow links and scrape additional pages, set <b>Link selector</b> with <b>Pseudo-URLs</b> and/or <b>Glob patterns</b> to specify which links to follow. Alternatively, you can manually enqueue new links in <b>Page function</b>. For details, see actor's <a href='https://apify.com/apify/web-scraper' target='_blank' rel='noopener'>README</a> or <a href='https://docs.apify.com/academy/apify-scrapers/web-scraper' target='_blank' rel='noopener'>Web scraping tutorial</a> in the Apify documentation.",
+    "description": "Web Scraper loads <b>Start URLs</b> in the Undetect Stealthium browser and executes <b>Page function</b> on each page to extract data from it. To follow links and scrape additional pages, set <b>Link selector</b> with <b>Pseudo-URLs</b> and/or <b>Glob patterns</b> to specify which links to follow. Alternatively, you can manually enqueue new links in <b>Page function</b>. For details, see actor's <a href='https://apify.com/apify/web-scraper' target='_blank' rel='noopener'>README</a> or <a href='https://docs.apify.com/academy/apify-scrapers/web-scraper' target='_blank' rel='noopener'>Web scraping tutorial</a> in the Apify documentation.",
     "schemaVersion": 1,
     "properties": {
         "runMode": {
@@ -21,7 +21,7 @@
             "title": "Start URLs",
             "type": "array",
             "description": "A static list of URLs to scrape. <br><br>For details, see <a href='https://apify.com/apify/web-scraper#start-urls' target='_blank' rel='noopener'>Start URLs</a> in README.",
-            "prefill": [{ "url": "https://crawlee.dev" }],
+            "prefill": [{ "url": "https://undetect.io" }],
             "editor": "requestListSources"
         },
         "keepUrlFragments": {
@@ -45,7 +45,7 @@
             "editor": "globs",
             "default": [],
             "prefill": [{
-                "glob": "https://crawlee.dev/*/*"
+                "glob": "https://undetect.io/*/*"
             }]
         },
         "pseudoUrls": {
@@ -281,7 +281,7 @@
             "title": "Browser log",
             "type": "boolean",
             "description": "If enabled, the actor log will include console messages produced by JavaScript executed by the web pages (e.g. using <code>console.log()</code>). Beware that this may result in the log being flooded by error messages, warnings and other messages of little value, especially with high concurrency.",
-            "default": true
+            "default": false
         },
         "customData": {
             "title": "Custom data",
