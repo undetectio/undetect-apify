@@ -1,3 +1,5 @@
+> **Warning**: in order to use this actor, you need to sign up as an [Undetect](https://undetect.io/) enterprise customer first. When this is done, you are supplied a [set of keys](https://docs.undetect.io/container/overview) that you need in order to run this actor.
+
 # Web Scraper
 
 Web Scraper is a generic easy-to-use actor for crawling arbitrary web pages
