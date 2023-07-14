@@ -281,7 +281,7 @@
             "title": "Browser log",
             "type": "boolean",
             "description": "If enabled, the actor log will include console messages produced by JavaScript executed by the web pages (e.g. using <code>console.log()</code>). Beware that this may result in the log being flooded by error messages, warnings and other messages of little value, especially with high concurrency.",
-            "default": false
+            "default": true
         },
         "customData": {
             "title": "Custom data",
