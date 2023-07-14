@@ -126,14 +126,16 @@
             "title": "Use Chrome",
             "type": "boolean",
             "description": "If enabled, the scraper will use a real Chrome browser instead of Chromium bundled with Puppeteer. This option may help bypass certain anti-scraping protections, but might make the scraper unstable. Use at your own risk \uD83D\uDE42",
-            "default": false,
+            "default": true,
+            "editor": "hidden",
             "groupCaption": "Browser masking"
         },
         "headless": {
             "title": "Run browsers in headless mode",
             "type": "boolean",
             "description": "By default, browsers run in headless mode. You can toggle this off to run them in headful mode, which can help with certain rare anti-scraping protections but is slower and more costly.",
-            "default": true
+            "default": false,
+            "editor": "hidden"
         },
         "ignoreSslErrors": {
             "title": "Ignore SSL errors",
