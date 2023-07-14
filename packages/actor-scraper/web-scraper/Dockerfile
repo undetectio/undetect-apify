@@ -1,18 +1,19 @@
-FROM apify/actor-node-puppeteer-chrome:18 AS builder
+ARG CONTAINER_KEY
+FROM cr.undetect.io/$CONTAINER_KEY/stealthium:latest AS builder
 
-COPY --chown=myuser package*.json ./
+COPY --chown=browser package*.json ./
 
 RUN npm install --include=dev --audit=false
 
-COPY --chown=myuser . ./
+COPY --chown=browser . ./
 
 RUN npm run build
 
-FROM apify/actor-node-puppeteer-chrome:18
+FROM cr.undetect.io/$CONTAINER_KEY/stealthium:latest
 
-COPY --from=builder --chown=myuser /home/myuser/dist ./dist
+COPY --from=builder --chown=browser /home/browser/dist ./dist
 
-COPY --chown=myuser package*.json ./
+COPY --chown=browser package*.json ./
 
 RUN npm --quiet set progress=false \
     && npm install --omit=dev --omit=optional \
@@ -24,8 +25,8 @@ RUN npm --quiet set progress=false \
     && npm --version \
     && rm -r ~/.npm
 
-COPY --chown=myuser . ./
+COPY --chown=browser . ./
 
 ENV APIFY_DISABLE_OUTDATED_WARNING=1
 
-CMD ./start_xvfb_and_run_cmd.sh && npm run start:prod --silent
+CMD npm run start:prod --silent
