@@ -1,6 +1,6 @@
 {
     "name": "apify",
-    "version": "3.1.7",
+    "version": "3.1.14",
     "description": "The scalable web crawling and scraping library for JavaScript/Node.js. Enables development of data extraction and web automation jobs (not only) with headless Chrome and Puppeteer.",
     "engines": {
         "node": ">=16.0.0"
@@ -47,25 +47,25 @@
         "build": "npm run clean && npm run compile && npm run copy && npm run fixApifyExport",
         "clean": "rimraf ./dist",
         "compile": "tsc -p tsconfig.build.json && gen-esm-wrapper ./dist/index.js ./dist/index.mjs",
-        "copy": "ts-node -T ../../scripts/copy.ts --readme=local",
-        "fixApifyExport": "ts-node -T ../../scripts/temp_fix_apify_exports.ts"
+        "copy": "tsx ../../scripts/copy.ts --readme=local",
+        "fixApifyExport": "tsx ../../scripts/temp_fix_apify_exports.ts"
     },
     "publishConfig": {
         "access": "public"
     },
     "dependencies": {
-        "@apify/consts": "^2.4.1",
-        "@apify/input_secrets": "^1.1.0",
-        "@apify/log": "^2.1.4",
+        "@apify/consts": "^2.23.0",
+        "@apify/input_secrets": "^1.1.40",
+        "@apify/log": "^2.4.3",
         "@apify/timeout": "^0.3.0",
-        "@apify/utilities": "^2.2.2",
-        "@crawlee/core": "^3.3.0",
-        "@crawlee/types": "^3.3.0",
-        "@crawlee/utils": "^3.3.0",
-        "apify-client": "^2.6.3",
-        "ow": "^0.28.1",
-        "semver": "^7.3.7",
-        "tslib": "^2.4.0",
+        "@apify/utilities": "^2.9.3",
+        "@crawlee/core": "^3.6.1",
+        "@crawlee/types": "^3.6.1",
+        "@crawlee/utils": "^3.6.1",
+        "apify-client": "^2.8.4",
+        "ow": "^0.28.2",
+        "semver": "^7.5.4",
+        "tslib": "^2.6.2",
         "ws": "^7.5.9"
     }
 }

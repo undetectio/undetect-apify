@@ -3,6 +3,87 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [3.1.14](https://github.com/apify/apify-sdk-js/compare/apify@3.1.13...apify@3.1.14) (2023-11-27)
+
+**Note:** Version bump only for package apify
+
+
+
+
+
+## [3.1.13](https://github.com/apify/apify-sdk-js/compare/apify@3.1.12...apify@3.1.13) (2023-11-15)
+
+
+### Bug Fixes
+
+* **apify:** declare got-scraping as dependency ([#252](https://github.com/apify/apify-sdk-js/issues/252)) ([a6bcf1d](https://github.com/apify/apify-sdk-js/commit/a6bcf1d578a7c7ebbb23b3768e8bbf9e94e2b404))
+
+
+
+
+
+## [3.1.12](https://github.com/apify/apify-sdk-js/compare/apify@3.1.11...apify@3.1.12) (2023-10-05)
+
+
+### Bug Fixes
+
+* add more logging to `Actor.init` and `Actor.exit` ([#236](https://github.com/apify/apify-sdk-js/issues/236)) ([b7e01fc](https://github.com/apify/apify-sdk-js/commit/b7e01fc649de84d6f1391bf95e0f349f7ca32536))
+
+
+
+
+
+## [3.1.11](https://github.com/apify/apify-sdk-js/compare/apify@3.1.10...apify@3.1.11) (2023-10-04)
+
+
+### Bug Fixes
+
+* run the whole `Actor.exit()` code inside a timeout handler ([#235](https://github.com/apify/apify-sdk-js/issues/235)) ([c8aabae](https://github.com/apify/apify-sdk-js/commit/c8aabaee5f2de1ab40947f47f95f54ccff37cad0))
+
+
+### Features
+
+* Use `.reboot()`  instead of `.metamorph()` for reboot ([#227](https://github.com/apify/apify-sdk-js/issues/227)) ([8c0bff5](https://github.com/apify/apify-sdk-js/commit/8c0bff5a8d3ea65e532b3700b34b9c563856158a))
+
+
+
+
+
+## [3.1.10](https://github.com/apify/apify-sdk-js/compare/apify@3.1.9...apify@3.1.10) (2023-09-07)
+
+
+### Bug Fixes
+
+* require newer version of crawlee to fix possible issues with `purgeDefaultStorages` ([#226](https://github.com/apify/apify-sdk-js/issues/226)) ([95cf31f](https://github.com/apify/apify-sdk-js/commit/95cf31f3d1d054a1c8e3daac89f41bbb0aaddbba))
+
+
+
+
+
+## [3.1.9](https://github.com/apify/apify-sdk-js/compare/apify@3.1.8...apify@3.1.9) (2023-09-06)
+
+**Note:** Version bump only for package apify
+
+
+
+
+
+## [3.1.8](https://github.com/apify/apify-sdk-js/compare/apify@3.1.7...apify@3.1.8) (2023-07-20)
+
+
+### Bug Fixes
+
+* require newer version of apify-client and other packages ([24a3a4b](https://github.com/apify/apify-sdk-js/commit/24a3a4b5bf2f61e690348727e7f24c06c45a0999))
+
+
+### Features
+
+* Use Actor env vars ([#216](https://github.com/apify/apify-sdk-js/issues/216)) ([11ff740](https://github.com/apify/apify-sdk-js/commit/11ff740ad3d2bdd37fce011d94b64ea01413b0d9))
+
+
+
+
+
 ## [3.1.7](https://github.com/apify/apify-sdk-js/compare/apify@3.1.6...apify@3.1.7) (2023-06-09)
 
 **Note:** Version bump only for package apify

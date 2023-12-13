@@ -1,5 +1,9 @@
+import { readFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { setTimeout } from 'node:timers/promises';
+import { fileURLToPath, URL } from 'node:url';
+
 import { browserTools, constants as scraperToolsConstants, CrawlerSetupOptions, createContext, tools } from '@apify/scraper-tools';
-import { Actor, ApifyEnv } from 'apify';
 import {
     AutoscaledPool,
     Dataset,
@@ -14,16 +18,15 @@ import {
     log,
     Awaitable,
     Dictionary,
+    ProxyConfiguration,
 } from '@crawlee/puppeteer';
+import { Actor, ApifyEnv } from 'apify';
 import contentType from 'content-type';
 // @ts-expect-error no typings
 import DevToolsServer from 'devtools-server';
-import { readFile } from 'node:fs/promises';
-import { HTTPResponse, Page } from 'puppeteer';
-import { dirname } from 'node:path';
-import { fileURLToPath, URL } from 'node:url';
 import { getInjectableScript } from 'idcac-playwright';
-import { setTimeout } from 'node:timers/promises';
+import { HTTPResponse, Page } from 'puppeteer';
+
 import { createBundle } from './bundle.browser.js';
 import { BreakpointLocation, CHROME_DEBUGGER_PORT, Input, ProxyRotation, RunMode } from './consts.js';
 import { GlobalStore } from './global_store.js';
@@ -205,7 +208,7 @@ export class CrawlerSetup implements CrawlerSetupOptions {
             maxConcurrency: this.isDevRun ? MAX_CONCURRENCY_IN_DEVELOPMENT : this.input.maxConcurrency,
             maxRequestRetries: this.input.maxRequestRetries,
             maxRequestsPerCrawl: this.input.maxPagesPerCrawl,
-            proxyConfiguration: await Actor.createProxyConfiguration(this.input.proxyConfiguration),
+            proxyConfiguration: await Actor.createProxyConfiguration(this.input.proxyConfiguration) as any as ProxyConfiguration,
             browserPoolOptions: {
                 preLaunchHooks: [
                     async () => {
@@ -214,8 +217,8 @@ export class CrawlerSetup implements CrawlerSetupOptions {
                         }
 
                         const devToolsServer = new DevToolsServer({
-                            containerHost: new URL(process.env.APIFY_CONTAINER_URL!).host,
-                            devToolsServerPort: process.env.APIFY_CONTAINER_PORT,
+                            containerHost: new URL(process.env.ACTOR_WEB_SERVER_URL!).host,
+                            devToolsServerPort: process.env.ACTOR_WEB_SERVER_PORT,
                             chromeRemoteDebuggingPort: CHROME_DEBUGGER_PORT,
                         });
                         await devToolsServer.start();
@@ -349,7 +352,7 @@ export class CrawlerSetup implements CrawlerSetupOptions {
         });
     }
 
-    private _failedRequestHandler({ request }: PuppeteerCrawlingContext) {
+    private async _failedRequestHandler({ request }: PuppeteerCrawlingContext) {
         const lastError = request.errorMessages[request.errorMessages.length - 1];
         const errorMessage = lastError ? lastError.split('\n')[0] : 'no error';
         log.error(`Request ${request.url} failed and will not be retried anymore. Marking as failed.\nLast Error Message: ${errorMessage}`);
@@ -584,7 +587,7 @@ export class CrawlerSetup implements CrawlerSetupOptions {
     }
 
     private async _injectBrowserHandles(page: Page, pageContext: PageContext) {
-        const saveSnapshotP = browserTools.createBrowserHandle(page, () => browserTools.saveSnapshot({ page }));
+        const saveSnapshotP = browserTools.createBrowserHandle(page, async () => browserTools.saveSnapshot({ page }));
         const skipLinksP = browserTools.createBrowserHandle(page, () => { pageContext.skipLinks = true; });
         const globalStoreP = browserTools.createBrowserHandlesForObject(
             page,

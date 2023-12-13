@@ -1,7 +1,9 @@
-import { Actor } from 'apify';
+import { inspect } from 'node:util';
+
 import log from '@apify/log';
 import type { CommonPage } from '@crawlee/browser-pool';
-import { inspect } from 'node:util';
+import { Actor } from 'apify';
+
 import { RESOURCE_LOAD_ERROR_MESSAGE, SNAPSHOT } from './consts';
 import { createRandomHash } from './tools';
 

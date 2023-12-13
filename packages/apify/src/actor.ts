@@ -1,21 +1,9 @@
-import ow from 'ow';
 import { createPrivateKey } from 'node:crypto';
+
+import { ACTOR_ENV_VARS, APIFY_ENV_VARS, INTEGER_ENV_VARS } from '@apify/consts';
 import { decryptInputSecrets } from '@apify/input_secrets';
-import { ENV_VARS, INTEGER_ENV_VARS } from '@apify/consts';
+import log from '@apify/log';
 import { addTimeoutToPromise } from '@apify/timeout';
-import log, { LogLevel } from '@apify/log';
-import type {
-    ActorCallOptions,
-    ApifyClientOptions,
-    RunAbortOptions,
-    TaskCallOptions,
-    Webhook,
-    WebhookEventType,
-} from 'apify-client';
-import {
-    ActorRun as ClientActorRun,
-    ApifyClient,
-} from 'apify-client';
 import type {
     ConfigurationOptions,
     EventManager,
@@ -34,12 +22,26 @@ import {
 } from '@crawlee/core';
 import type { Awaitable, Constructor, Dictionary, SetStatusMessageOptions, StorageClient } from '@crawlee/types';
 import { sleep, snakeCaseToCamelCase } from '@crawlee/utils';
-import { logSystemInfo, printOutdatedSdkWarning } from './utils';
+import type {
+    ActorCallOptions,
+    ApifyClientOptions,
+    RunAbortOptions,
+    TaskCallOptions,
+    Webhook,
+    WebhookEventType,
+} from 'apify-client';
+import {
+    ActorRun as ClientActorRun,
+    ApifyClient,
+} from 'apify-client';
+import ow from 'ow';
+
+import { Configuration } from './configuration';
+import { KeyValueStore } from './key_value_store';
 import { PlatformEventManager } from './platform_event_manager';
 import type { ProxyConfigurationOptions } from './proxy_configuration';
 import { ProxyConfiguration } from './proxy_configuration';
-import { KeyValueStore } from './key_value_store';
-import { Configuration } from './configuration';
+import { logSystemInfo, printOutdatedSdkWarning } from './utils';
 
 /**
  * `Actor` class serves as an alternative approach to the static helpers exported from the package. It allows to pass configuration
@@ -151,7 +153,7 @@ export class Actor<Data extends Dictionary = Dictionary> {
      * @param options
      * @ignore
      */
-    main<T>(userFunc: UserFunc, options?: MainOptions): Promise<T> {
+    async main<T>(userFunc: UserFunc, options?: MainOptions): Promise<T> {
         if (!userFunc || typeof userFunc !== 'function') {
             throw new Error(`First parameter for Actor.main() must be a function (was '${userFunc === null ? 'null' : typeof userFunc}').`);
         }
@@ -177,6 +179,7 @@ export class Actor<Data extends Dictionary = Dictionary> {
      */
     async init(options: InitOptions = {}): Promise<void> {
         if (this.initialized) {
+            log.debug(`Actor SDK was already initialized`);
             return;
         }
 
@@ -207,8 +210,14 @@ export class Actor<Data extends Dictionary = Dictionary> {
 
         // Init the event manager the config uses
         await this.config.getEventManager().init();
+        log.debug(`Events initialized`);
 
-        await purgeDefaultStorages(this.config);
+        await purgeDefaultStorages({
+            config: this.config,
+            onlyPurgeOnce: true,
+        });
+        log.debug(`Default storages purged`);
+
         Configuration.storage.enterWith(this.config);
     }
 
@@ -220,37 +229,44 @@ export class Actor<Data extends Dictionary = Dictionary> {
         options.exit ??= true;
         options.exitCode ??= EXIT_CODES.SUCCESS;
         options.timeoutSecs ??= 30;
+        const client = this.config.getStorageClient();
+        const events = this.config.getEventManager();
 
         // Close the event manager and emit the final PERSIST_STATE event
-        await this.config.getEventManager().close();
+        await events.close();
+        log.debug(`Events closed`);
 
         // Emit the exit event
-        this.config.getEventManager().emit(EventType.EXIT, options);
+        events.emit(EventType.EXIT, options);
 
         // Wait for all event listeners to be processed
         log.debug(`Waiting for all event listeners to complete their execution (with ${options.timeoutSecs} seconds timeout)`);
         await addTimeoutToPromise(
-            () => this.config.getEventManager().waitForAllListenersToComplete(),
+            async () => {
+                await events.waitForAllListenersToComplete();
+
+                if (client.teardown) {
+                    let finished = false;
+                    setTimeout(() => {
+                        if (!finished) {
+                            log.info('Waiting for the storage to write its state to file system.');
+                        }
+                    }, 1000);
+                    await client.teardown();
+                    finished = true;
+                }
+
+                if (options.statusMessage != null) {
+                    await this.setStatusMessage(options.statusMessage, { isStatusMessageTerminal: true, level: options.exitCode! > 0 ? 'ERROR' : 'INFO' });
+                }
+            },
             options.timeoutSecs * 1000,
             `Waiting for all event listeners to complete their execution timed out after ${options.timeoutSecs} seconds`,
-        );
-
-        const client = this.config.getStorageClient();
-
-        if (client.teardown) {
-            let finished = false;
-            setTimeout(() => {
-                if (!finished) {
-                    log.info('Waiting for the storage to write its state to file system.');
-                }
-            }, 1000);
-            await client.teardown();
-            finished = true;
-        }
-
-        if (options.statusMessage != null) {
-            await this.setStatusMessage(options.statusMessage, { isStatusMessageTerminal: true, level: options.exitCode > 0 ? LogLevel.ERROR : LogLevel.INFO });
-        }
+        ).catch(() => {
+            if (options.exit) {
+                process.exit(options.exitCode);
+            }
+        });
 
         if (!options.exit) {
             return;
@@ -435,25 +451,30 @@ export class Actor<Data extends Dictionary = Dictionary> {
     /**
      * Internally reboots this actor. The system stops the current container and starts
      * a new container with the same run ID.
+     * This can be used to get the Actor out of irrecoverable error state and continue where it left off.
      *
      * @ignore
      */
-    async reboot(): Promise<void> {
+    async reboot(options: RebootOptions = {}): Promise<void> {
         if (!this.isAtHome()) {
             log.warning('Actor.reboot() is only supported when running on the Apify platform.');
             return;
         }
 
-        // Waiting for all the listeners to finish, as `.metamorph()` kills the container.
+        // Waiting for all the listeners to finish, as `.reboot()` kills the container.
         await Promise.all([
             // `persistState` for individual RequestLists, RequestQueue... instances to be persisted
-            ...this.config.getEventManager().listeners(EventType.PERSIST_STATE).map((x) => x()),
+            ...this.config.getEventManager().listeners(EventType.PERSIST_STATE).map(async (x) => x()),
             // `migrating` to pause Apify crawlers
-            ...this.config.getEventManager().listeners(EventType.MIGRATING).map((x) => x()),
+            ...this.config.getEventManager().listeners(EventType.MIGRATING).map(async (x) => x()),
         ]);
 
-        const actorId = this.config.get('actorId')!;
-        await this.metamorph(actorId);
+        const runId = this.config.get('actorRunId')!;
+        await this.apifyClient.run(runId).reboot();
+
+        // Wait some time for container to be stopped.
+        const { customAfterSleepMillis = this.config.get('metamorphAfterSleepMillis') } = options;
+        await sleep(customAfterSleepMillis);
     }
 
     /**
@@ -485,7 +506,7 @@ export class Actor<Data extends Dictionary = Dictionary> {
 
         const runId = this.config.get('actorRunId')!;
         if (!runId) {
-            throw new Error(`Environment variable ${ENV_VARS.ACTOR_RUN_ID} is not set!`);
+            throw new Error(`Environment variable ${ACTOR_ENV_VARS.RUN_ID} is not set!`);
         }
 
         return this.apifyClient.webhooks().create({
@@ -503,7 +524,6 @@ export class Actor<Data extends Dictionary = Dictionary> {
     /**
      * Sets the status message for the current actor run.
      *
-     * @param options
      * @returns The return value is the Run object.
      * For more information, see the [Actor Runs](https://docs.apify.com/api/v2#/reference/actor-runs/) API endpoints.
      * @ignore
@@ -516,13 +536,13 @@ export class Actor<Data extends Dictionary = Dictionary> {
         const loggedStatusMessage = `[Status message]: ${statusMessage}`;
 
         switch (level) {
-            case LogLevel.DEBUG:
+            case 'DEBUG':
                 log.debug(loggedStatusMessage);
                 break;
-            case LogLevel.WARNING:
+            case 'WARNING':
                 log.warning(loggedStatusMessage);
                 break;
-            case LogLevel.ERROR:
+            case 'ERROR':
                 log.error(loggedStatusMessage);
                 break;
             default:
@@ -530,12 +550,25 @@ export class Actor<Data extends Dictionary = Dictionary> {
                 break;
         }
 
-        const storageClient = this.config.getStorageClient();
-        await storageClient.setStatusMessage?.(statusMessage, { isStatusMessageTerminal, level });
+        const client = this.config.getStorageClient();
+
+        // just to be sure, this should be fast
+        await addTimeoutToPromise(
+            async () => client.setStatusMessage!(statusMessage, { isStatusMessageTerminal, level }),
+            1000,
+            'Setting status message timed out after 1s',
+        ).catch((e) => log.warning(e.message));
 
         const runId = this.config.get('actorRunId')!;
+
         if (runId) {
-            const run = await this.apifyClient.run(runId).get();
+            // just to be sure, this should be fast
+            const run = await addTimeoutToPromise(
+                async () => this.apifyClient.run(runId).get(),
+                1000,
+                'Getting the current run timed out after 1s',
+            ).catch((e) => log.warning(e.message));
+
             if (run) {
                 return run;
             }
@@ -846,9 +879,27 @@ export class Actor<Data extends Dictionary = Dictionary> {
     }
 
     /**
-     * Returns a new {@apilink ApifyEnv} object which contains information parsed from all the `APIFY_XXX` environment variables.
+     * Modifies Actor env vars so parsing respects the structure of {@apilink ApifyEnv} interface.
+     */
+    private getModifiedActorEnvVars() {
+        const modifiedActorEnvVars: Record<string, string> = {};
+
+        Object.entries(ACTOR_ENV_VARS).forEach(([k, v]) => {
+            // Prepend `ACTOR_` to env vars so ApifyEnv structure is preserved
+            if (['ID', 'RUN_ID', 'TASK_ID'].includes(k)) {
+                modifiedActorEnvVars[`ACTOR_${k}`] = v;
+            } else {
+                modifiedActorEnvVars[k] = v;
+            }
+        });
+
+        return modifiedActorEnvVars;
+    }
+
+    /**
+     * Returns a new {@apilink ApifyEnv} object which contains information parsed from all the Apify environment variables.
      *
-     * For the list of the `APIFY_XXX` environment variables, see
+     * For the list of the Apify environment variables, see
      * [Actor documentation](https://docs.apify.com/actor/run#environment-variables).
      * If some variables are not defined or are invalid, the corresponding value in the resulting object will be null.
      * @ignore
@@ -858,7 +909,7 @@ export class Actor<Data extends Dictionary = Dictionary> {
         const env = process.env || {};
         const envVars = {} as ApifyEnv;
 
-        for (const [shortName, fullName] of Object.entries(ENV_VARS)) {
+        for (const [shortName, fullName] of Object.entries({ ...APIFY_ENV_VARS, ...this.getModifiedActorEnvVars() })) {
             const camelCaseName = snakeCaseToCamelCase(shortName) as keyof ApifyEnv;
             let value: string | number | Date | undefined = env[fullName];
 
@@ -899,7 +950,7 @@ export class Actor<Data extends Dictionary = Dictionary> {
      * @ignore
      */
     isAtHome(): boolean {
-        return !!process.env[ENV_VARS.IS_AT_HOME];
+        return !!process.env[APIFY_ENV_VARS.IS_AT_HOME];
     }
 
     /**
@@ -1001,7 +1052,7 @@ export class Actor<Data extends Dictionary = Dictionary> {
      * the promise will be awaited. The user function is called with no arguments.
      * @param options
      */
-    static main<T>(userFunc: UserFunc<T>, options?: MainOptions): Promise<T> {
+    static async main<T>(userFunc: UserFunc<T>, options?: MainOptions): Promise<T> {
         return Actor.getDefaultInstance().main<T>(userFunc, options);
     }
 
@@ -1156,9 +1207,10 @@ export class Actor<Data extends Dictionary = Dictionary> {
     /**
      * Internally reboots this actor run. The system stops the current container and starts
      * a new container with the same run id.
+     * This can be used to get the Actor out of irrecoverable error state and continue where it left off.
      */
-    static async reboot(): Promise<void> {
-        return Actor.getDefaultInstance().reboot();
+    static async reboot(options: RebootOptions = {}): Promise<void> {
+        return Actor.getDefaultInstance().reboot(options);
     }
 
     /**
@@ -1421,9 +1473,9 @@ export class Actor<Data extends Dictionary = Dictionary> {
     }
 
     /**
-     * Returns a new {@apilink ApifyEnv} object which contains information parsed from all the `APIFY_XXX` environment variables.
+     * Returns a new {@apilink ApifyEnv} object which contains information parsed from all the Apify environment variables.
      *
-     * For the list of the `APIFY_XXX` environment variables, see
+     * For the list of the Apify environment variables, see
      * [Actor documentation](https://docs.apify.com/actor/run#environment-variables).
      * If some of the variables are not defined or are invalid, the corresponding value in the resulting object will be null.
      */
@@ -1465,7 +1517,7 @@ export class Actor<Data extends Dictionary = Dictionary> {
         return this._instance;
     }
 
-    private _openStorage<T extends IStorage>(storageClass: Constructor<T>, id?: string, options: OpenStorageOptions = {}) {
+    private async _openStorage<T extends IStorage>(storageClass: Constructor<T>, id?: string, options: OpenStorageOptions = {}) {
         const client = options.forceCloud ? this.apifyClient : undefined;
         return StorageManager.openStorage<T>(storageClass, id, client, this.config);
     }
@@ -1496,22 +1548,22 @@ export interface InitOptions {
 export interface MainOptions extends ExitOptions, InitOptions {}
 
 /**
- * Parsed representation of the `APIFY_XXX` environmental variables.
+ * Parsed representation of the Apify environment variables.
  * This object is returned by the {@apilink Actor.getEnv} function.
  */
 export interface ApifyEnv {
     /**
-     * ID of the actor (APIFY_ACTOR_ID)
+     * ID of the actor (ACTOR_ID)
      */
     actorId: string | null;
 
     /**
-     * ID of the actor run (APIFY_ACTOR_RUN_ID)
+     * ID of the actor run (ACTOR_RUN_ID)
      */
     actorRunId: string | null;
 
     /**
-     * ID of the actor task (APIFY_ACTOR_TASK_ID)
+     * ID of the actor task (ACTOR_TASK_ID)
      */
     actorTaskId: string | null;
 
@@ -1528,30 +1580,30 @@ export interface ApifyEnv {
     token: string | null;
 
     /**
-     * Date when the actor was started (APIFY_STARTED_AT)
+     * Date when the actor was started (ACTOR_STARTED_AT)
      */
     startedAt: Date | null;
 
     /**
-     * Date when the actor will time out (APIFY_TIMEOUT_AT)
+     * Date when the actor will time out (ACTOR_TIMEOUT_AT)
      */
     timeoutAt: Date | null;
 
     /**
      * ID of the key-value store where input and output data of this
-     * actor is stored (APIFY_DEFAULT_KEY_VALUE_STORE_ID)
+     * actor is stored (ACTOR_DEFAULT_KEY_VALUE_STORE_ID)
      */
     defaultKeyValueStoreId: string | null;
 
     /**
      * ID of the dataset where input and output data of this
-     * actor is stored (APIFY_DEFAULT_DATASET_ID)
+     * actor is stored (ACTOR_DEFAULT_DATASET_ID)
      */
     defaultDatasetId: string | null;
 
     /**
      * Amount of memory allocated for the actor,
-     * in megabytes (APIFY_MEMORY_MBYTES)
+     * in megabytes (ACTOR_MEMORY_MBYTES)
      */
     memoryMbytes: number | null;
 }
@@ -1628,6 +1680,11 @@ export interface MetamorphOptions {
      */
     build?: string;
 
+    /** @internal */
+    customAfterSleepMillis?: number;
+}
+
+export interface RebootOptions {
     /** @internal */
     customAfterSleepMillis?: number;
 }

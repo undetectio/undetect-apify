@@ -1,5 +1,4 @@
-import ow from 'ow';
-import { APIFY_PROXY_VALUE_REGEX, ENV_VARS } from '@apify/consts';
+import { APIFY_PROXY_VALUE_REGEX, APIFY_ENV_VARS } from '@apify/consts';
 import type {
     ProxyConfigurationOptions as CoreProxyConfigurationOptions,
     ProxyInfo as CoreProxyInfo,
@@ -7,7 +6,9 @@ import type {
 import {
     ProxyConfiguration as CoreProxyConfiguration,
 } from '@crawlee/core';
-import { gotScraping } from 'got-scraping';
+import { gotScraping } from '@crawlee/utils';
+import ow from 'ow';
+
 import { Actor } from './actor';
 import { Configuration } from './configuration';
 
@@ -328,8 +329,8 @@ export class ProxyConfiguration extends CoreProxyConfiguration {
         }
 
         if (!this.password) {
-            throw new Error(`Apify Proxy password must be provided using options.password or the "${ENV_VARS.PROXY_PASSWORD}" environment variable. `
-                + `If you add the "${ENV_VARS.TOKEN}" environment variable, the password will be automatically inferred.`);
+            throw new Error(`Apify Proxy password must be provided using options.password or the "${APIFY_ENV_VARS.PROXY_PASSWORD}" environment variable. `
+                + `If you add the "${APIFY_ENV_VARS.TOKEN}" environment variable, the password will be automatically inferred.`);
         }
     }
 

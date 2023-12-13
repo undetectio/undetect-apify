@@ -1,26 +1,28 @@
-import { ENV_VARS } from '@apify/consts';
+import type { IncomingMessage } from 'node:http';
+
+import { APIFY_ENV_VARS } from '@apify/consts';
+import log from '@apify/log';
 import type { Request } from '@crawlee/core';
-import { log } from '@crawlee/core';
 import { createRequestDebugInfo } from '@crawlee/utils';
 import { Actor } from 'apify';
-import { printOutdatedSdkWarning } from 'apify/src/utils';
 import semver from 'semver';
-import type { IncomingMessage } from 'node:http';
+
+import { printOutdatedSdkWarning } from '../../packages/apify/src/utils';
 
 describe('Actor.isAtHome()', () => {
     test('works', () => {
         expect(Actor.isAtHome()).toBe(false);
-        process.env[ENV_VARS.IS_AT_HOME] = '1';
+        process.env[APIFY_ENV_VARS.IS_AT_HOME] = '1';
         expect(Actor.isAtHome()).toBe(true);
-        delete process.env[ENV_VARS.IS_AT_HOME];
+        delete process.env[APIFY_ENV_VARS.IS_AT_HOME];
         expect(Actor.isAtHome()).toBe(false);
     });
 });
 
 describe('Actor.newClient()', () => {
     test('reads environment variables correctly', () => {
-        process.env[ENV_VARS.API_BASE_URL] = 'http://www.example.com:1234/path';
-        process.env[ENV_VARS.TOKEN] = 'token';
+        process.env[APIFY_ENV_VARS.API_BASE_URL] = 'http://www.example.com:1234/path';
+        process.env[APIFY_ENV_VARS.TOKEN] = 'token';
         const client = Actor.newClient();
 
         expect(client.constructor.name).toBe('ApifyClient');
@@ -29,8 +31,8 @@ describe('Actor.newClient()', () => {
     });
 
     test('uses correct default if APIFY_API_BASE_URL is not defined', () => {
-        delete process.env[ENV_VARS.API_BASE_URL];
-        process.env[ENV_VARS.TOKEN] = 'token';
+        delete process.env[APIFY_ENV_VARS.API_BASE_URL];
+        process.env[APIFY_ENV_VARS.TOKEN] = 'token';
         const client = Actor.newClient();
 
         expect(client.token).toBe('token');
@@ -41,50 +43,44 @@ describe('Actor.newClient()', () => {
 describe('printOutdatedSdkWarning()', () => {
     const currentVersion = require('../../packages/apify/package.json').version; // eslint-disable-line
 
-    test('should do nothing when ENV_VARS.SDK_LATEST_VERSION is not set', () => {
-        const spy = jest.spyOn(log, 'warning');
+    afterEach(() => {
+        delete process.env[APIFY_ENV_VARS.SDK_LATEST_VERSION];
+        delete process.env[APIFY_ENV_VARS.DISABLE_OUTDATED_WARNING];
+    });
 
-        delete process.env[ENV_VARS.SDK_LATEST_VERSION];
+    test('should do nothing when ENV_VARS.SDK_LATEST_VERSION is not set', () => {
+        const spy = vitest.spyOn(log, 'warning');
+
         printOutdatedSdkWarning();
 
         expect(spy).not.toHaveBeenCalled();
-        spy.mockRestore();
     });
 
     test('should do nothing when ENV_VARS.DISABLE_OUTDATED_WARNING is set', () => {
-        const spy = jest.spyOn(log, 'warning');
+        const spy = vitest.spyOn(log, 'warning');
 
-        process.env[ENV_VARS.DISABLE_OUTDATED_WARNING] = '1';
+        process.env[APIFY_ENV_VARS.DISABLE_OUTDATED_WARNING] = '1';
         printOutdatedSdkWarning();
 
         expect(spy).not.toHaveBeenCalled();
-
-        delete process.env[ENV_VARS.DISABLE_OUTDATED_WARNING];
-        spy.mockRestore();
     });
 
     test('should correctly work when outdated', () => {
-        const spy = jest.spyOn(log, 'warning');
+        const spy = vitest.spyOn(log, 'warning');
 
-        process.env[ENV_VARS.SDK_LATEST_VERSION] = semver.inc(currentVersion, 'minor');
+        process.env[APIFY_ENV_VARS.SDK_LATEST_VERSION] = semver.inc(currentVersion, 'minor');
         printOutdatedSdkWarning();
 
         expect(spy).toHaveBeenCalledTimes(1);
-
-        delete process.env[ENV_VARS.SDK_LATEST_VERSION];
-        spy.mockRestore();
     });
 
     test('should correctly work when up to date', () => {
-        const spy = jest.spyOn(log, 'warning');
+        const spy = vitest.spyOn(log, 'warning');
 
-        process.env[ENV_VARS.SDK_LATEST_VERSION] = '0.13.0';
+        process.env[APIFY_ENV_VARS.SDK_LATEST_VERSION] = '0.13.0';
         printOutdatedSdkWarning();
 
         expect(spy).not.toHaveBeenCalled();
-
-        delete process.env[ENV_VARS.SDK_LATEST_VERSION];
-        spy.mockRestore();
     });
 });
 
